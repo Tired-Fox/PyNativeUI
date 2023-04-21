@@ -3,7 +3,7 @@ from ctypes.wintypes import RGB, HDC, BOOL, RECT, BYTE
 
 from win32gui import CreateHatchBrush, CreateSolidBrush
 
-from native_ui.window import Hatch
+from .window import Hatch
 
 PAINTSTRUCT = tuple[HDC, BOOL, RECT, BOOL, BOOL, BYTE]
 PyGdiHANDLE = tuple[int, PAINTSTRUCT]
