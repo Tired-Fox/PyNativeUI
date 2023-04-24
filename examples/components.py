@@ -23,12 +23,8 @@ if __name__ == "__main__":
         background=brush("hatch", HEX("F0F"), pattern=Hatch.DCROSS),
     )
 
-    rect: RECT = GetWindowRect(message.h_wnd)
-    width = rect[2] - rect[0]
-    height = rect[3] - rect[1]
-
+    width, height = dimensions(message)
     ttb_h = GetSystemMetrics(4) 
-    print(width, height, ttb_h)
 
     CreateWindow(
         "STATIC",

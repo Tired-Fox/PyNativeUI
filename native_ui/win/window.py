@@ -113,7 +113,7 @@ class Window:
 
         message_map = {
             win32con.WM_DESTROY: self.on_destroy,
-            win32con.WM_PAINT: self.on_paint,
+            win32con.WM_ERASEBKGND: self.on_erasebkgnd,
             win32con.WM_CLOSE: self.on_close,
         }
 
@@ -186,7 +186,7 @@ class Window:
                     user32.TranslateMessage(message)
                 user32.DispatchMessageA(message)
 
-    def on_paint(self, h_wnd, *_):
+    def on_erasebkgnd(self, h_wnd, *_):
         # Draw defined background
         hdc, ps = win32gui.BeginPaint(h_wnd)
         win32gui.FillRect(hdc, ps[2], self.background)
