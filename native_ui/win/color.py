@@ -3,7 +3,7 @@ from ctypes.wintypes import RGB, HDC, BOOL, RECT, BYTE
 
 from win32gui import CreateHatchBrush, CreateSolidBrush
 
-from .window import Hatch
+from .styles import Hatch
 
 PAINTSTRUCT = tuple[HDC, BOOL, RECT, BOOL, BOOL, BYTE]
 PyGdiHANDLE = tuple[int, PAINTSTRUCT]
@@ -37,6 +37,6 @@ class Brush:
     def _hatch_(color: int, config: BrushConfig):
         return CreateHatchBrush(config.get("hatch", Hatch.DCROSS), color)
 
-def brush(_type: Literal["hatch", "solid"], color: int, config: BrushConfig|None = None) -> PyGdiHANDLE:
-    return Brush.create(_type, color, config)
+def brush(_type: Literal["hatch", "solid"], color: int, pattern: int = Hatch.DCROSS) -> PyGdiHANDLE:
+    return Brush.create(_type, color, {"hatch": pattern})
 

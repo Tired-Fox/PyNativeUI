@@ -1,0 +1,6 @@
+Windows fatal exception: access violation
+
+Current thread 0x000027a8 (most recent call first):
+  File "C:\Users\zboehm\Documents\Repo\PyNativeUI\native_ui\win\api\user.py", line 75 in GetMessage
+  File "C:\Users\zboehm\Documents\Repo\PyNativeUI\native_ui\win\window.py", line 207 in run
+  File "C:\Users\zboehm\Documents\Repo\PyNativeUI\examples\hello_world.py", line 36 in <module>

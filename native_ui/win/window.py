@@ -1,21 +1,21 @@
+from contextlib import contextmanager
 from pathlib import Path
 from traceback import print_stack
 from types import FunctionType
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, Callable, TypedDict
+from typing import TYPE_CHECKING, Any, Iterator, Literal, TypeAlias, Callable, TypedDict
 from badges import wraps
 import win32api
 import win32gui
 import win32con
 
-from native_ui.win.popup import MessageReturn
-
 if TYPE_CHECKING:
     from _win32typing import PyGdiHANDLE
 
-from ctypes import windll, pointer
-from ctypes.wintypes import HICON, MSG, HWND, WPARAM, LPARAM
+from ctypes import GetLastError, WinError, windll, pointer
+from ctypes.wintypes import HICON, MSG, HWND
 
-from .styles import Hatch
+user32 = windll.user32
+
 from .color import HEX, Brush, PyGdiHANDLE
 
 Handler: TypeAlias = Callable[[HWND], bool]
@@ -23,6 +23,8 @@ Event: TypeAlias = Literal["close", "destroy"]
 
 
 class WindowHandlers:
+    """Assignable handlers for different window events."""
+
     close: Handler | None = None
     destroy: Handler | None = None
 
@@ -39,6 +41,7 @@ class WindowHandlerDict(TypedDict, total=False):
 
 
 def icon(path: str) -> HICON:
+    """Helper to load an image as an ico."""
     return win32gui.LoadImage(
         0,
         path,
@@ -71,6 +74,7 @@ class Window:
         maximized (bool): Whether the window should start maximized.
         alwasy_on_top (bool): Whether the window should start as alwasy on top.
     """
+
     def __init__(
         self,
         *,
@@ -95,7 +99,7 @@ class Window:
                 self.bind_event(key, value)
 
         ico_path = Path(ico)
-        if not ico_path.exists() or ico_path.suffix != ".ico":
+        if ico != "" and (not ico_path.exists() or ico_path.suffix != ".ico"):
             raise ValueError(
                 f"Can only apply '.ico' files as icons in window, was {ico_path.suffix!r}"
             )
@@ -119,7 +123,8 @@ class Window:
         wc.lpfnWndProc = message_map
         wc.lpszClassName = klass
         win32gui.RegisterClass(wc)
-        style = win32con.WS_TILEDWINDOW | win32con.WS_VISIBLE
+
+        style = win32con.WS_TILEDWINDOW
         if minimize:
             style |= win32con.WS_MINIMIZEBOX
         if maximize:
@@ -160,9 +165,26 @@ class Window:
             win32con.SWP_NOMOVE | win32con.SWP_NOSIZE,
         )
 
+        self._is_alive_ = True
+
+    def is_alive(self) -> bool:
+        return self._is_alive_
+
     def bind_event(self, event: Event, handler: Callable[[HWND], bool]):
         """Add an event handler to the window instance."""
         self.handlers[event] = handler
+
+    def open(self, translate: bool = False, errors: bool = False):
+        """Open and run the current window."""
+        win32gui.ShowWindow(self.h_wnd, win32con.SW_SHOW)
+        with msg() as message:
+            while self.is_alive():
+                mr = user32.GetMessageA(message, self.h_wnd, 0, 0)
+                if errors and mr == -1:
+                    raise WinError(GetLastError())
+                if translate:
+                    user32.TranslateMessage(message)
+                user32.DispatchMessageA(message)
 
     def on_paint(self, h_wnd, *_):
         # Draw defined background
@@ -185,22 +207,26 @@ class Window:
 
         if self.handlers.destroy is not None:
             self.handlers.destroy(h_wnd)
-        win32gui.PostQuitMessage(0)
+        self._is_alive_ = False
         return True
 
 
-def run(window: Window):
+def run(*windows: Window, errors: bool = False):
     """Run a given window. This will also create a loop watching for messages and
     dispatching messages to the window.
     """
 
-    msg = MSG()
-    lpmsg = pointer(msg)
+    for window in windows:
+        if window is not None:
+            win32gui.ShowWindow(window.h_wnd, win32con.SW_SHOW)
 
-    while windll.user32.GetMessageA(lpmsg, None, 0, 0) != 0:
-        windll.user32.TranslateMessage(lpmsg)
-        windll.user32.DispatchMessageA(lpmsg)
-
+    with msg() as message:
+        while any(window.is_alive() for window in windows):
+            mr = user32.GetMessageA(message, None, 0, 0)
+            if mr == -1 and errors:
+                raise WinError(GetLastError())
+            user32.TranslateMessage(message)
+            user32.DispatchMessageA(message)
 
 class Missing:
     """Custom missing object to define a missing arg that can also be None."""
@@ -239,3 +265,10 @@ def handler(expect: Any = MISSING):
         return inner
 
     return wrapper
+
+
+@contextmanager
+def msg() -> Iterator:
+    message = MSG()
+    message_p = pointer(message)
+    yield message_p
