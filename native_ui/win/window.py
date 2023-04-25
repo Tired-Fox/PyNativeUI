@@ -8,6 +8,8 @@ import win32api
 import win32gui
 import win32con
 
+from native_ui.win.component import Component
+
 if TYPE_CHECKING:
     from _win32typing import PyGdiHANDLE
 
@@ -82,7 +84,7 @@ class Window:
         ico: str = "",
         size: tuple[int, int] = (win32con.CW_USEDEFAULT, win32con.CW_USEDEFAULT),
         background: PyGdiHANDLE = Brush.create("solid", HEX("FFF")),
-        klass: str = "PythonNativeUI",
+        klass: str|None = None,
         bind: WindowHandlerDict | None = None,
         minimize: bool = True,
         maximize: bool = True,
@@ -90,6 +92,7 @@ class Window:
         maximized: bool = False,
         alwasy_on_top: bool = False,
     ):
+        self.children = []
         win32gui.InitCommonControls()
         self.h_inst = win32api.GetModuleHandle(None)
 
@@ -121,7 +124,7 @@ class Window:
         wc.hIcon = self.icon
         wc.style = win32con.CS_HREDRAW | win32con.CS_VREDRAW
         wc.lpfnWndProc = message_map
-        wc.lpszClassName = klass
+        wc.lpszClassName = klass or f"PyNativeUI-{title}"
         win32gui.RegisterClass(wc)
 
         style = win32con.WS_TILEDWINDOW
@@ -142,7 +145,7 @@ class Window:
             style |= win32con.WS_EX_TOPMOST
 
         self.h_wnd = win32gui.CreateWindow(
-            klass,
+            wc.lpszClassName,
             title,
             style,
             win32con.CW_USEDEFAULT,
@@ -165,7 +168,12 @@ class Window:
             win32con.SWP_NOMOVE | win32con.SWP_NOSIZE,
         )
 
+        self.style = {"padding": 0, "align": "center", "justify": "cener"}
         self._is_alive_ = True
+        self.pos = (0, 0)
+        rect = win32gui.GetWindowRect(self.h_wnd)
+        self.dimensions = (rect[2] - rect[0], rect[3] - rect[1]
+)
 
     def is_alive(self) -> bool:
         return self._is_alive_
@@ -185,6 +193,12 @@ class Window:
                 if translate:
                     user32.TranslateMessage(message)
                 user32.DispatchMessageA(message)
+
+    def layout(self, *children: Component):
+        self.children.extend(children)
+        for child in children:
+            child.parent = self
+            child.init()
 
     def on_erasebkgnd(self, h_wnd, *_):
         # Draw defined background
