@@ -1,9 +1,8 @@
 from typing import Literal, TypedDict
 from ctypes.wintypes import RGB, HDC, BOOL, RECT, BYTE
+from win32con import HS_DIAGCROSS
 
 from win32gui import CreateHatchBrush, CreateSolidBrush
-
-from .styles import Hatch
 
 PAINTSTRUCT = tuple[HDC, BOOL, RECT, BOOL, BOOL, BYTE]
 PyGdiHANDLE = tuple[int, PAINTSTRUCT]
@@ -35,8 +34,8 @@ class Brush:
 
     @staticmethod
     def _hatch_(color: int, config: BrushConfig):
-        return CreateHatchBrush(config.get("hatch", Hatch.DCROSS), color)
+        return CreateHatchBrush(config.get("hatch", HS_DIAGCROSS), color)
 
-def brush(_type: Literal["hatch", "solid"], color: int, pattern: int = Hatch.DCROSS) -> PyGdiHANDLE:
+def brush(_type: Literal["hatch", "solid"], color: int, pattern: int = HS_DIAGCROSS) -> PyGdiHANDLE:
     return Brush.create(_type, color, {"hatch": pattern})
 

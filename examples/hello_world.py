@@ -1,7 +1,4 @@
-from win32api import GetWindowLong
-from win32con import GWL_HINSTANCE, SS_CENTER, WS_BORDER, WS_CHILD, WS_VISIBLE
-from win32gui import CreateWindow
-from native_ui.win import Window, run, HEX, brush, Hatch, handler
+from native_ui.win import Window, run, handler
 from native_ui.win.popup import message_box, ButtonLayout, Icon, MessageReturn
 
 
@@ -17,6 +14,18 @@ def prompt_quit(hwnd) -> bool:
     )
 
 
+# Styling is based on css. The format is the same.
+# This allows for easier and intuitive styling.
+# There will be a custom css based styling language for this library called Native
+# Cascading Style Sheet or (NCSS).
+# This language will be used in the outer scoped custom markup langauge that
+# allows for html style creating of windows
+#
+# <link type="stylesheet" href="style.ncss">
+# <window>
+#   <button onclick="<some callback>" style="<ncss styles>">Hello World!</button>
+# </window>
+
 if __name__ == "__main__":
     if (
         message_box(
@@ -26,22 +35,69 @@ if __name__ == "__main__":
         )
         == MessageReturn.Yes
     ):
+        # CSS Equivelant:
+        #
+        # window {
+        #   icon: python.ico;
+        #   width: 800px;
+        #   height: 400px;
+        #   background: hatch #c3c3c3 tangent
+        # }
         win = Window(
             title="Hello World",
-            ico="python.ico",
             klass="HelloWorld",
-            size=(800, 400),
-            background=brush("hatch", HEX("C3C3C3"), Hatch.DCROSS),
-            minimize=False,
             bind={"close": prompt_quit},
-        )
-
-        win2 = Window(
-            title="Hello World",
             ico="python.ico",
-            klass="HelloWorld2",
-            size=(400, 200),
-            background=brush("solid", HEX("F0F")),
+            style={
+                "width": 800,
+                "height": 400,
+                "background": ("hatch", "c3c3c3", "tangent"),
+            },
         )
 
-        run(win, win2)
+        # CSS Equivelant:
+        #
+        # window {
+        #   icon: python.ico;
+        #   width: 400px;
+        #   height: 200px;
+        #   background: #F0F;
+        #   z-order: on-top;
+        # }
+
+        run(win)
+
+    with Window(
+        title="Hello World",
+        klass="HelloWorld2",
+        ico="python.ico",
+        style={
+            "width": 400,
+            "height": 200,
+            "background": "F0F",
+            "z-order": "on-top",
+        },
+    ) as window:
+        window.Button("Hello World", {
+            "width": 150,
+            "height": 50,
+            "justify": "center",
+            "align": "center"
+        })
+        window.Text(
+            "Some Text",
+            {
+                "width": 150,
+                "height": 100,
+                "justify": "end",
+                "align": "end",
+                "border": "single"
+            },
+        )
+        window.Text(
+            "right",
+            {
+                "top": -50,
+                "color": "FFF"
+            }
+        )

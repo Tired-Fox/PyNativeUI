@@ -16,6 +16,9 @@
 
 <!-- End Header -->
 
+[PyWin32](http://timgolden.me.uk/pywin32-docs/win32_modules.html)
+[stackoverflow](https://stackoverflow.com/a/68029095) referencing [acrylic composition example](https://github.com/Extrimis/Win32-Acrylic-Effect/blob/master/Acrylic%Q/Acrylic%20Window.cpp)
+
 <!-- Footer Badges --!>
 
 <br>

@@ -1,24 +1,24 @@
+from __future__ import annotations
 from contextlib import contextmanager
 from pathlib import Path
 from traceback import print_stack
 from types import FunctionType
-from typing import TYPE_CHECKING, Any, Iterator, Literal, TypeAlias, Callable, TypedDict
+from typing import Any, Iterator, Literal, TypeAlias, Callable, TypedDict
 from badges import wraps
+from win32.lib.win32con import CW_USEDEFAULT
 import win32api
 import win32gui
 import win32con
 
-from native_ui.win.component import Component
-
-if TYPE_CHECKING:
-    from _win32typing import PyGdiHANDLE
+from native_ui.win.component import Component, Button, Text
+from native_ui.win.styles import StyleDict, style as cstyle, to_style, parse_background, DEFAULT
 
 from ctypes import GetLastError, WinError, windll, pointer
 from ctypes.wintypes import HICON, MSG, HWND
 
 user32 = windll.user32
 
-from .color import HEX, Brush, PyGdiHANDLE
+# from .color import HEX, Brush, PyGdiHANDLE
 
 Handler: TypeAlias = Callable[[HWND], bool]
 Event: TypeAlias = Literal["close", "destroy"]
@@ -81,21 +81,21 @@ class Window:
         self,
         *,
         title: str = "",
-        ico: str = "",
-        size: tuple[int, int] = (win32con.CW_USEDEFAULT, win32con.CW_USEDEFAULT),
-        background: PyGdiHANDLE = Brush.create("solid", HEX("FFF")),
-        klass: str|None = None,
+        klass: str | None = None,
         bind: WindowHandlerDict | None = None,
-        minimize: bool = True,
-        maximize: bool = True,
-        minimized: bool = False,
-        maximized: bool = False,
-        alwasy_on_top: bool = False,
+        ico: str = "",
+        on_open: Literal["minimize", "maximize"] = DEFAULT,
+        style: StyleDict | None = None,
     ):
-        self.children = []
         win32gui.InitCommonControls()
+        message_map = {
+            win32con.WM_DESTROY: self.on_destroy,
+            win32con.WM_ERASEBKGND: self.on_erasebkgnd,
+            win32con.WM_CLOSE: self.on_close,
+        }
+        self.children = []
         self.h_inst = win32api.GetModuleHandle(None)
-
+        self.style = cstyle(style or {})
         self.handlers = WindowHandlers()
         if bind is not None:
             for key, value in bind.items():
@@ -106,52 +106,33 @@ class Window:
             raise ValueError(
                 f"Can only apply '.ico' files as icons in window, was {ico_path.suffix!r}"
             )
+
         self.icon = icon(ico) if ico != "" else 0
-
-        self.background = background
-        self.always_on_top = (
-            win32con.HWND_TOPMOST if alwasy_on_top else win32con.HWND_NOTOPMOST
+        self.background = parse_background(self.style["background"])
+        self.always_on_top = to_style("z-order", self.style["z-order"])
+        self.init_size = (
+            self.style["width"] or CW_USEDEFAULT,
+            self.style["height"] or CW_USEDEFAULT,
         )
-        self.init_size = size
-
-        message_map = {
-            win32con.WM_DESTROY: self.on_destroy,
-            win32con.WM_ERASEBKGND: self.on_erasebkgnd,
-            win32con.WM_CLOSE: self.on_close,
-        }
 
         wc = win32gui.WNDCLASS()
         wc.hIcon = self.icon
-        wc.style = win32con.CS_HREDRAW | win32con.CS_VREDRAW
+        # wc.style = win32con.CS_HREDRAW | win32con.CS_VREDRAW
         wc.lpfnWndProc = message_map
         wc.lpszClassName = klass or f"PyNativeUI-{title}"
         win32gui.RegisterClass(wc)
 
-        style = win32con.WS_TILEDWINDOW
-        if minimize:
-            style |= win32con.WS_MINIMIZEBOX
-        if maximize:
-            style |= win32con.WS_MAXIMIZEBOX
-
-        if maximized and minimized:
-            raise ValueError("Can not start window as both minimized and maximized")
-
-        if minimized:
-            style |= win32con.WS_MINIMIZE
-        if maximized:
-            style |= win32con.WS_MAXIMIZE
-
-        if alwasy_on_top:
-            style |= win32con.WS_EX_TOPMOST
+        w_style = win32con.WS_TILEDWINDOW
+        w_style |= to_style("on-open", on_open)
 
         self.h_wnd = win32gui.CreateWindow(
             wc.lpszClassName,
             title,
-            style,
+            w_style,
             win32con.CW_USEDEFAULT,
             win32con.CW_USEDEFAULT,
-            size[0],
-            size[1],
+            self.style["width"] or CW_USEDEFAULT,
+            self.style["height"] or CW_USEDEFAULT,
             0,
             0,
             self.h_inst,
@@ -168,12 +149,27 @@ class Window:
             win32con.SWP_NOMOVE | win32con.SWP_NOSIZE,
         )
 
-        self.style = {"padding": 0, "align": "center", "justify": "cener"}
         self._is_alive_ = True
-        self.pos = (0, 0)
-        rect = win32gui.GetWindowRect(self.h_wnd)
-        self.dimensions = (rect[2] - rect[0], rect[3] - rect[1]
-)
+        # left top right bottom
+        self.rect = win32gui.GetWindowRect(self.h_wnd)
+        self.caption_height = win32api.GetSystemMetrics(4)
+        self.rect = (self.rect[0], self.rect[1] + self.caption_height, *self.rect[2:])
+
+    def __enter__(self) -> Window:
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.open()
+
+    def Button(self, text: str, style: StyleDict | None = None) -> Button:
+        cbutton = Button(self, text, style)
+        self.children.append(cbutton)
+        return cbutton
+        
+    def Text(self, text: str, style: StyleDict | None = None) -> Text:
+        ctext = Text(self, text, style)
+        self.children.append(ctext)
+        return ctext 
 
     def is_alive(self) -> bool:
         return self._is_alive_
@@ -185,6 +181,8 @@ class Window:
     def open(self, translate: bool = False, errors: bool = False):
         """Open and run the current window."""
         win32gui.ShowWindow(self.h_wnd, win32con.SW_SHOW)
+        for child in self.children:
+            child.init()
         with msg() as message:
             while self.is_alive():
                 mr = user32.GetMessageA(message, self.h_wnd, 0, 0)
@@ -241,6 +239,7 @@ def run(*windows: Window, errors: bool = False):
                 raise WinError(GetLastError())
             user32.TranslateMessage(message)
             user32.DispatchMessageA(message)
+
 
 class Missing:
     """Custom missing object to define a missing arg that can also be None."""
