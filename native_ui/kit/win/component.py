@@ -1,13 +1,13 @@
 from __future__ import annotations
+from win32.lib.win32con import WM_DRAWITEM, WM_NOTIFY, WS_CHILDWINDOW
 
 from win32api import RGB, GetWindowLong
 from win32con import (
-    BS_DEFPUSHBUTTON,
+    BS_OWNERDRAW,
     DT_CALCRECT,
     GWL_HINSTANCE,
     GWL_WNDPROC,
     TRANSPARENT,
-    WM_COMMAND,
     WM_PAINT,
     WS_CHILD,
     WS_VISIBLE,
@@ -18,13 +18,14 @@ from win32gui import (
     DefWindowProc,
     DrawText,
     EndPaint,
+    FillRect,
     GetClientRect,
     GetDC,
     SetBkMode,
     SetTextColor,
     SetWindowLong,
 )
-from .styles import StyleDict, style as cstyle, to_style
+from .styles import StyleDict, style as cstyle, to_style, parse_background
 from .color import HEX
 
 
@@ -60,9 +61,17 @@ class Button(Component):
         self.text = text
 
     def proc(self, hWnd, msg, wParam, lParam):
-        if msg == WM_COMMAND:
-            print(WM_COMMAND)
-            return DefWindowProc(hWnd, msg, wParam, lParam)
+        if msg == WM_NOTIFY:
+            print("BUTTON INTERACT")
+            return True
+        elif msg == WM_PAINT:
+            hdc, ps = BeginPaint(hWnd)
+            SetBkMode(hdc, TRANSPARENT)
+            EndPaint(hWnd, ps)
+            return True
+        elif msg == WM_DRAWITEM:
+            print("DRAW ITEM", wParam, lParam)
+            return True
         else:
             return DefWindowProc(hWnd, msg, wParam, lParam)
 
@@ -70,21 +79,39 @@ class Button(Component):
         super().init()
 
         text_size = calc_text_size(self.text, self.parent)
-        wButton = CreateWindow(
-            "BUTTON",
-            self.text,
-            WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+
+        width = self.style["width"] or text_size[0] + 8
+        height = self.style["height"] or text_size[1] + 8
+
+        wWrapper = CreateWindow(
+            "STATIC",
+            "",
+            WS_VISIBLE | WS_CHILDWINDOW,
             0,
             0,
-            self.style["width"] or text_size[0] + 8,
-            self.style["height"] or text_size[1] + 8,
+            width,
+            height,
             self.parent.h_wnd,
             0,
             GetWindowLong(self.parent.h_wnd, GWL_HINSTANCE),
             None,
         )
 
-        # SetWindowLong(wButton, GWL_WNDPROC, self.proc)
+        wButton = CreateWindow(
+            "BUTTON",
+            self.text,
+            WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
+            0,
+            0,
+            width,
+            height,
+            wWrapper,
+            0,
+            GetWindowLong(wWrapper, GWL_HINSTANCE),
+            None,
+        )
+
+        SetWindowLong(wWrapper, GWL_WNDPROC, self.proc)
 
 class Text(Component):
     def __init__(self, parent, text: str, style: StyleDict | None):

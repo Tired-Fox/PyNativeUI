@@ -1,5 +1,5 @@
-from native_ui.win import Window, run, handler
-from native_ui.win.popup import message_box, ButtonLayout, Icon, MessageReturn
+from native_ui.kit.win import Window, run, handler
+from native_ui.kit.win.popup import message_box, ButtonLayout, Icon, MessageReturn
 
 
 @handler(expect=MessageReturn.Ok)
