@@ -1,5 +1,6 @@
 from native_ui.kit.win import Window, run, handler
 from native_ui.kit.win.popup import message_box, ButtonLayout, Icon, MessageReturn
+from native_ui.kit.win.styles import Stylesheet
 
 
 @handler(expect=MessageReturn.Ok)
@@ -26,6 +27,23 @@ def prompt_quit(hwnd) -> bool:
 #   <button onclick="<some callback>" style="<ncss styles>">Hello World!</button>
 # </window>
 
+stylesheet: Stylesheet = {
+    "window": {
+        "width": 800,
+        "height": 400,
+        "background": ("hatch", "c3c3c3", "tangent"),
+    },
+    "button": {"width": 150, "height": 50, "justify": "center", "align": "center"},
+    ".boxed-centered": {
+        "width": 150,
+        "height": 100,
+        "justify": "end",
+        "align": "end",
+        "border": "single",
+    },
+    ".red-text": {"top": -50, "color": "F00"},
+}
+
 if __name__ == "__main__":
     if (
         message_box(
@@ -48,11 +66,7 @@ if __name__ == "__main__":
             klass="HelloWorld",
             bind={"close": prompt_quit},
             ico="python.ico",
-            style={
-                "width": 800,
-                "height": 400,
-                "background": ("hatch", "c3c3c3", "tangent"),
-            },
+            style=stylesheet.get("window", {}),
         )
 
         # CSS Equivelant:
@@ -72,32 +86,15 @@ if __name__ == "__main__":
         klass="HelloWorld2",
         ico="python.ico",
         style={
-            "width": 400,
-            "height": 200,
-            "background": "F0F",
+            **stylesheet.get("window", {}),
             "z-order": "on-top",
         },
     ) as window:
-        window.Button("Hello World", {
-            "width": 150,
-            "height": 50,
-            "justify": "center",
-            "align": "center"
-        })
+        window.Button("Hello World", stylesheet.get("button", {}))
         window.Text(
             "Some Text",
-            {
-                "width": 150,
-                "height": 100,
-                "justify": "end",
-                "align": "end",
-                "border": "single"
-            },
+            {**stylesheet.get("text", {}), **stylesheet.get(".boxed-centered", {})},
         )
         window.Text(
-            "right",
-            {
-                "top": -50,
-                "color": "FFF"
-            }
+            "right", {**stylesheet.get("text", {}), **stylesheet.get(".red-text", {})}
         )

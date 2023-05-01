@@ -17,7 +17,7 @@ def HEX(value: str) -> int:
     if len(value) == 3:
         value = f"{value[0]*2}{value[1]*2}{value[2]*2}"
 
-    value = f"00{value[0:2]}{value[2:4]}{value[4:6]}" 
+    value = f"00{value[4:6]}{value[2:4]}{value[0:2]}" 
     return int(value, 16) 
 
 class BrushConfig(TypedDict, total=False):
